@@ -60,6 +60,10 @@ class User {
     this.address,
     this.province,
     this.dateOfBirth,
-    this.isActive = true,
+    this.isActive = true, required createdAt, required profileImageUrl,
   });
+
+  get createdAt => null;
+
+  get profileImageUrl => null;
 }

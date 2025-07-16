@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:mamacare/screens/user/pregnancy_tracker.dart';
 import 'package:mamacare/screens/user/growth_monitor.dart';
 import 'package:mamacare/screens/user/health_education.dart';
 import 'package:mamacare/screens/user/facility_locator.dart';
 import 'package:mamacare/screens/user/emergency.dart';
+import 'package:mamacare/services/auth_service.dart';
 
 class UserDashboard extends StatefulWidget {
   const UserDashboard({super.key});

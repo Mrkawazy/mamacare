@@ -3,7 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mamacare/models/user.dart'; // Ensure this import exists
 import 'package:mamacare/screens/admin/admin_dashboard.dart';
 import 'package:mamacare/screens/auth/login_screen.dart';
-import 'package:mamacare/screens/user/user_dashboard.dart';
+import 'package:mamacare/screens/user/dashboard.dart';
 import 'package:mamacare/services/auth_service.dart';
 
 class AuthWrapper extends StatelessWidget {

@@ -1,46 +1,58 @@
 import 'package:geolocator/geolocator.dart';
+import 'package:mamacare/utils/app_exceptions.dart';
 
 class LocationService {
   Future<Position> getCurrentLocation() async {
+    try {
+      final hasPermission = await _handleLocationPermission();
+      if (!hasPermission) {
+        throw LocationPermissionDeniedException();
+      }
+
+      return await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.best,
+      );
+    } catch (e) {
+      throw LocationException(e.toString());
+    }
+  }
+
+  Future<bool> _handleLocationPermission() async {
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
-      throw Exception('Location services are disabled');
+      return false;
     }
 
     LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
-        throw Exception('Location permissions denied');
+        return false;
       }
     }
 
     if (permission == LocationPermission.deniedForever) {
-      throw Exception('Location permissions permanently denied');
+      return false;
     }
 
-    return await Geolocator.getCurrentPosition();
+    return true;
   }
 
   Future<double> calculateDistance(
-    double startLat,
-    double startLng,
-    double endLat,
-    double endLng,
+    double startLatitude,
+    double startLongitude,
+    double endLatitude,
+    double endLongitude,
   ) async {
-    return Geolocator.distanceBetween(startLat, startLng, endLat, endLng);
-  }
-
-  Future<String> getAddressFromCoordinates(double lat, double lng) async {
     try {
-      final placemarks = await Geolocator.placemarkFromCoordinates(lat, lng);
-      if (placemarks.isNotEmpty) {
-        final place = placemarks.first;
-        return '${place.street}, ${place.locality}, ${place.administrativeArea}';
-      }
-      return 'Unknown location';
+      return Geolocator.distanceBetween(
+        startLatitude,
+        startLongitude,
+        endLatitude,
+        endLongitude,
+      );
     } catch (e) {
-      return 'Could not get address';
+      throw LocationException(e.toString());
     }
   }
 }

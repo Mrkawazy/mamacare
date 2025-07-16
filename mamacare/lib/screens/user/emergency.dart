@@ -1,7 +1,9 @@
+// ignore_for_file: prefer_const_constructors
+
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import 'package:mamacare/models/emergency.dart';
-import 'package:url_launcher/url_launcher.dart';
+
 
 class EmergencyScreen extends StatefulWidget {
   const EmergencyScreen({super.key});
@@ -210,6 +212,7 @@ class _EmergencyScreenState extends State<EmergencyScreen> {
               ),
             ),
           );
+        // ignore: unnecessary_to_list_in_spreads
         }).toList(),
       ],
     );
@@ -240,6 +243,8 @@ class _EmergencyScreenState extends State<EmergencyScreen> {
         return Colors.green;
     }
   }
+  
+  launchUrl(Uri uri) {}
 }
 
 class EmergencyReportDialog extends StatefulWidget {

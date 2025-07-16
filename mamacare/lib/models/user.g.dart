@@ -27,7 +27,7 @@ class UserAdapter extends TypeAdapter<User> {
       address: fields[7] as String?,
       province: fields[8] as String?,
       dateOfBirth: fields[9] as DateTime?,
-      isActive: fields[10] as bool,
+      isActive: fields[10] as bool, createdAt: null, profileImageUrl: null,
     );
   }
 

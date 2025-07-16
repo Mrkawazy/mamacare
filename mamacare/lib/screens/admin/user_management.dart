@@ -47,7 +47,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
       address: user.address,
       province: user.province,
       dateOfBirth: user.dateOfBirth,
-      isActive: !user.isActive,
+      isActive: !user.isActive, createdAt: null, profileImageUrl: null,
     ));
     _loadUsers();
   }

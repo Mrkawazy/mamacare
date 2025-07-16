@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
+import 'package:mamacare/models/milestone.dart';
 import 'package:mamacare/models/pregnancy.dart';
 import 'package:intl/intl.dart';
-import 'package:syncfusion_flutter_calendar/calendar.dart';
+
 
 class PregnancyTrackerScreen extends StatefulWidget {
   const PregnancyTrackerScreen({super.key});
@@ -117,8 +118,8 @@ class _PregnancyTrackerScreenState extends State<PregnancyTrackerScreen> {
   }
 
   Widget _buildPregnancyOverview() {
-    final weeks = ((DateTime.now().difference(_currentPregnancy!.lastMenstrualPeriod).inDays / 7).floor();
-    final days = ((DateTime.now().difference(_currentPregnancy!.lastMenstrualPeriod).inDays % 7);
+    final weeks = (DateTime.now().difference(_currentPregnancy!.lastMenstrualPeriod).inDays / 7).floor();
+    final days = (DateTime.now().difference(_currentPregnancy!.lastMenstrualPeriod).inDays % 7);
 
     return Card(
       child: Padding(
@@ -209,6 +210,13 @@ class _PregnancyTrackerScreenState extends State<PregnancyTrackerScreen> {
   }
 
   Widget _buildCalendar() {
+    var sfCalendar = SfCalendar(
+            view: CalendarView.month,
+            dataSource: _getCalendarDataSource,
+            monthViewSettings: const MonthViewSettings(
+              showAgenda: true,
+            ),
+          );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -219,19 +227,13 @@ class _PregnancyTrackerScreenState extends State<PregnancyTrackerScreen> {
         const SizedBox(height: 8),
         SizedBox(
           height: 300,
-          child: SfCalendar(
-            view: CalendarView.month,
-            dataSource: _getCalendarDataSource(),
-            monthViewSettings: const MonthViewSettings(
-              showAgenda: true,
-            ),
-          ),
+          child: sfCalendar, // Use the SfCalendar widget to display the calendar
         ),
       ],
     );
   }
 
-  CalendarDataSource _getCalendarDataSource() {
+  _AppointmentDataSource get _getCalendarDataSource {
     final List<Appointment> appointments = [];
 
     // Add milestones as calendar events
@@ -258,8 +260,54 @@ class _PregnancyTrackerScreenState extends State<PregnancyTrackerScreen> {
   }
 }
 
+class SfCalendar {
+  const SfCalendar({
+    required CalendarView view,
+    required _AppointmentDataSource dataSource,
+    required MonthViewSettings monthViewSettings,
+  });
+
+  // Placeholder for the actual SfCalendar widget implementation
+}
+
+class MonthViewSettings {
+  const MonthViewSettings({
+    required this.showAgenda,
+  });
+
+  final bool showAgenda;
+
+  // Placeholder for the actual MonthViewSettings implementation
+}
+
+class CalendarView {
+  static var month = CalendarView();
+}
+
 class _AppointmentDataSource extends CalendarDataSource {
-  _AppointmentDataSource(List<Appointment> source) {
+  _AppointmentDataSource(List<Appointment> source) : super(appointments: source) {
     appointments = source;
   }
+
+  List<Appointment>? get source => appointments;
+}
+
+class CalendarDataSource {
+  late List<Appointment> appointments;
+
+  CalendarDataSource({required this.appointments});
+}
+
+class Appointment {
+  late DateTime startTime;
+  late DateTime endTime;
+  late String subject;
+  late Color color;
+
+  Appointment({
+    required this.startTime,
+    required this.endTime,
+    required this.subject,
+    required this.color,
+  });
 }

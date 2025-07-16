@@ -89,7 +89,7 @@ class _AddAdminScreenState extends State<AddAdminScreen> {
         role: UserRole.admin,
         registeredAt: DateTime.now(),
         province: _selectedProvince,
-        isActive: true,
+        isActive: true, createdAt: null, profileImageUrl: null,
       );
 
       await authService.createAdmin(newAdmin, superuser: currentUser);

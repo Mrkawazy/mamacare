@@ -1,75 +1,117 @@
+import 'package:geolocator/geolocator.dart';
 import 'package:hive/hive.dart';
-import '../models/pregnancy.dart';
-import '../models/child.dart';
-import '../models/health_education.dart';
-import '../models/health_facility.dart';
-import '../models/emergency.dart';
+import 'package:mamacare/models/child.dart';
+import 'package:mamacare/models/emergency.dart';
+import 'package:mamacare/models/facility.dart';
+import 'package:mamacare/models/health_education.dart';
+import 'package:mamacare/models/pregnancy.dart';
+import 'package:mamacare/utils/app_exceptions.dart';
 
 class DatabaseService {
-  // Pregnancy operations
-  final Box<Pregnancy> _pregnanciesBox = Hive.box<Pregnancy>('pregnancies');
-  
-  Future<void> addPregnancy(Pregnancy pregnancy) async {
-    await _pregnanciesBox.put(pregnancy.id, pregnancy);
+  final Box<Pregnancy> _pregnancyBox;
+  final Box<Child> _childBox;
+  final Box<HealthEducation> _educationBox;
+  final Box<HealthFacility> _facilityBox;
+  final Box<EmergencyReport> _reportBox;
+
+  DatabaseService()
+      : _pregnancyBox = Hive.box<Pregnancy>('pregnancies'),
+        _childBox = Hive.box<Child>('children'),
+        _educationBox = Hive.box<HealthEducation>('health_education'),
+        _facilityBox = Hive.box<HealthFacility>('facilities'),
+        _reportBox = Hive.box<EmergencyReport>('emergency_reports');
+
+  // Pregnancy Methods
+  Future<Pregnancy> createPregnancy(Pregnancy pregnancy) async {
+    try {
+      if (_pregnancyBox.values.any((p) => p.userId == pregnancy.userId && p.isActive)) {
+        throw DatabaseException('User already has an active pregnancy');
+      }
+      await _pregnancyBox.put(pregnancy.id, pregnancy);
+      return pregnancy;
+    } catch (e) {
+      throw DatabaseException(e.toString());
+    }
   }
-  
+
   Future<List<Pregnancy>> getUserPregnancies(String userId) async {
-    return _pregnanciesBox.values.where((p) => p.userId == userId).toList();
+    try {
+      return _pregnancyBox.values
+          .where((pregnancy) => pregnancy.userId == userId)
+          .toList();
+    } catch (e) {
+      throw DatabaseException(e.toString());
+    }
   }
 
-  // Child operations
-  final Box<Child> _childrenBox = Hive.box<Child>('children');
-  
-  Future<void> addChild(Child child) async {
-    await _childrenBox.put(child.id, child);
+  // Child Methods
+  Future<Child> registerChild(Child child) async {
+    try {
+      await _childBox.put(child.id, child);
+      return child;
+    } catch (e) {
+      throw DatabaseException(e.toString());
+    }
   }
-  
+
   Future<List<Child>> getUserChildren(String userId) async {
-    return _childrenBox.values.where((c) => c.userId == userId).toList();
+    try {
+      return _childBox.values
+          .where((child) => child.userId == userId)
+          .toList();
+    } catch (e) {
+      throw DatabaseException(e.toString());
+    }
   }
 
-  // Health Education operations
-  final Box<HealthEducation> _healthEduBox = Hive.box<HealthEducation>('healthEducation');
-  
-  Future<void> addHealthEducation(HealthEducation education) async {
-    await _healthEduBox.put(education.id, education);
-  }
-  
-  Future<List<HealthEducation>> getHealthEducation({String? category}) async {
-    return _healthEduBox.values
-        .where((e) => category == null || e.category == category)
-        .toList();
-  }
-
-  // Health Facility operations
-  final Box<HealthFacility> _facilitiesBox = Hive.box<HealthFacility>('healthFacilities');
-  
-  Future<void> addHealthFacility(HealthFacility facility) async {
-    await _facilitiesBox.put(facility.id, facility);
-  }
-  
-  Future<List<HealthFacility>> getHealthFacilities({String? province}) async {
-    return _facilitiesBox.values
-        .where((f) => province == null || f.province == province)
-        .toList();
+  // Health Education Methods
+  Future<List<HealthEducation>> getHealthEducation({
+    EducationCategory? category,
+    bool featuredOnly = false,
+  }) async {
+    try {
+      return _educationBox.values
+          .where((item) => (category == null || item.category == category) &&
+              (!featuredOnly || item.isFeatured))
+          .toList();
+    } catch (e) {
+      throw DatabaseException(e.toString());
+    }
   }
 
-  // Emergency operations
-  final Box<Emergency> _emergenciesBox = Hive.box<Emergency>('emergencies');
-  
-  Future<void> addEmergency(Emergency emergency) async {
-    await _emergenciesBox.put(emergency.id, emergency);
-  }
-  
-  Future<List<Emergency>> getEmergencyContacts({String? type}) async {
-    return _emergenciesBox.values
-        .where((e) => type == null || e.type == type)
-        .toList();
+  // Facility Methods
+  Future<List<HealthFacility>> getNearbyFacilities(
+    double latitude,
+    double longitude,
+    double radiusInKm,
+  ) async {
+    try {
+      return _facilityBox.values.where((facility) {
+        final distance = Geolocator.distanceBetween(
+          latitude,
+          longitude,
+          facility.latitude,
+          facility.longitude,
+        ) / 1000; // Convert to kilometers
+        return distance <= radiusInKm;
+      }).toList();
+    } catch (e) {
+      throw DatabaseException(e.toString());
+    }
   }
 
-  // Sync with backend
-  Future<bool> syncData() async {
-    // Implement sync logic
-    return true;
+  // Emergency Methods
+  Future<EmergencyReport> reportEmergency(EmergencyReport report) async {
+    try {
+      await _reportBox.put(report.id, report);
+      return report;
+    } catch (e) {
+      throw DatabaseException(e.toString());
+    }
+  }
+
+  Future<void> syncWithRemote() async {
+    // Implementation for syncing local data with remote server
+    throw UnimplementedError();
   }
 }

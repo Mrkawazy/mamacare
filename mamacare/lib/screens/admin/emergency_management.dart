@@ -1,202 +1,222 @@
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import 'package:mamacare/models/emergency.dart';
-import 'package:mamacare/utils/constants.dart';
+import 'package:mamacare/screens/admin/add_edit_emergency.dart';
 
-class ManageEmergencyContactsScreen extends StatefulWidget {
-  const ManageEmergencyContactsScreen({super.key});
+class EmergencyManagementScreen extends StatefulWidget {
+  const EmergencyManagementScreen({super.key});
 
   @override
-  State<ManageEmergencyContactsScreen> createState() => _ManageEmergencyContactsScreenState();
+  State<EmergencyManagementScreen> createState() => _EmergencyManagementScreenState();
 }
 
-class _ManageEmergencyContactsScreenState extends State<ManageEmergencyContactsScreen> {
-  late Box<Emergency> _emergenciesBox;
-  List<Emergency> _emergencies = [];
-  final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _phoneController = TextEditingController();
-  String _selectedType = 'Ambulance';
-  String? _selectedProvince;
-  bool _isLoading = true;
+class _EmergencyManagementScreenState extends State<EmergencyManagementScreen> {
+  late Box<EmergencyContact> _emergencyBox;
+  List<EmergencyContact> _contacts = [];
+  String _searchQuery = '';
+  EmergencyType? _filterType;
 
   @override
   void initState() {
     super.initState();
-    _emergenciesBox = Hive.box<Emergency>('emergencies');
-    _loadEmergencies();
+    _emergencyBox = Hive.box<EmergencyContact>('emergency_contacts');
+    _loadContacts();
   }
 
-  Future<void> _loadEmergencies() async {
-    setState(() => _isLoading = true);
-    _emergencies = _emergenciesBox.values.toList();
-    setState(() => _isLoading = false);
+  Future<void> _loadContacts() async {
+    setState(() {
+      _contacts = _emergencyBox.values.where((contact) {
+        final matchesSearch = contact.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+            contact.phoneNumber.contains(_searchQuery);
+        final matchesType = _filterType == null || contact.type == _filterType;
+        return matchesSearch && matchesType;
+      }).toList();
+    });
   }
 
-  Future<void> _addEmergency() async {
-    if (_nameController.text.isEmpty || _phoneController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill all required fields')),
-      );
-      return;
-    }
-
-    final emergency = Emergency(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      name: _nameController.text,
-      phone: _phoneController.text,
-      type: _selectedType,
-      province: _selectedProvince,
+  Future<void> _deleteContact(String id) async {
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirm Delete'),
+        content: const Text('Are you sure you want to delete this emergency contact?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              await _emergencyBox.delete(id);
+              _loadContacts();
+              Navigator.pop(context);
+            },
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
     );
-
-    await _emergenciesBox.put(emergency.id, emergency);
-    _loadEmergencies();
-    
-    _nameController.clear();
-    _phoneController.clear();
-    _selectedProvince = null;
-    
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Emergency contact added successfully')),
-    );
-  }
-
-  Future<void> _deleteEmergency(String id) async {
-    await _emergenciesBox.delete(id);
-    _loadEmergencies();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Manage Emergency Contacts'),
+        title: const Text('Emergency Contacts Management'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add),
+            onPressed: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => AddEditEmergencyScreen(),
+                ),
+              );
+              _loadContacts();
+            },
+          ),
+        ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Column(
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Column(
               children: [
-                Expanded(
-                  child: ListView.builder(
-                    itemCount: _emergencies.length,
-                    itemBuilder: (context, index) {
-                      final emergency = _emergencies[index];
-                      return Card(
-                        margin: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 8),
-                        child: ListTile(
-                          title: Text(emergency.name),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('${emergency.phone} • ${emergency.type}'),
-                              if (emergency.province != null)
-                                Text(emergency.province!),
-                            ],
-                          ),
-                          trailing: IconButton(
-                            icon: const Icon(Icons.delete, color: Colors.red),
-                            onPressed: () => _deleteEmergency(emergency.id),
-                          ),
-                          onTap: () {
-                            _nameController.text = emergency.name;
-                            _phoneController.text = emergency.phone;
-                            _selectedType = emergency.type;
-                            _selectedProvince = emergency.province;
-                            showAddEditDialog(context, isEditing: true, id: emergency.id);
-                          },
-                        ),
-                      );
-                    },
+                TextField(
+                  decoration: const InputDecoration(
+                    labelText: 'Search Contacts',
+                    prefixIcon: Icon(Icons.search),
+                    border: OutlineInputBorder(),
                   ),
+                  onChanged: (value) {
+                    setState(() {
+                      _searchQuery = value;
+                    });
+                    _loadContacts();
+                  },
+                ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<EmergencyType>(
+                  value: _filterType,
+                  decoration: const InputDecoration(
+                    labelText: 'Filter by Type',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: EmergencyType.values.map((type) {
+                    return DropdownMenuItem<EmergencyType>(
+                      value: type,
+                      child: Text(_getEmergencyTypeName(type)),
+                    );
+                  }).toList(),
+                  onChanged: (type) {
+                    setState(() {
+                      _filterType = type;
+                    });
+                    _loadContacts();
+                  },
+                  isExpanded: true,
                 ),
               ],
             ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => showAddEditDialog(context),
-        child: const Icon(Icons.add),
+          ),
+          Expanded(
+            child: ListView.builder(
+              itemCount: _contacts.length,
+              itemBuilder: (context, index) {
+                final contact = _contacts[index];
+                return Card(
+                  margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  child: ListTile(
+                    leading: Icon(_getEmergencyIcon(contact.type),
+                        color: _getEmergencyColor(contact.type)),
+                    title: Text(contact.name),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(contact.phoneNumber),
+                        if (contact.location != null) Text(contact.location!),
+                        if (contact.province != null) 
+                          Chip(label: Text(contact.province!)),
+                      ],
+                    ),
+                    trailing: PopupMenuButton(
+                      itemBuilder: (context) => [
+                        const PopupMenuItem(
+                          value: 'edit',
+                          child: Text('Edit'),
+                        ),
+                        const PopupMenuItem(
+                          value: 'delete',
+                          child: Text('Delete'),
+                        ),
+                      ],
+                      onSelected: (value) async {
+                        if (value == 'edit') {
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => AddEditEmergencyScreen(
+                                existingContact: contact,
+                              ),
+                            ),
+                          );
+                          _loadContacts();
+                        } else if (value == 'delete') {
+                          _deleteContact(contact.id);
+                        }
+                      },
+                    ),
+                    onTap: () {
+                      // Show contact details
+                    },
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  void showAddEditDialog(BuildContext context, {bool isEditing = false, String? id}) {
-    showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) {
-          return AlertDialog(
-            title: Text(isEditing ? 'Edit Contact' : 'Add New Contact'),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: _nameController,
-                    decoration: const InputDecoration(labelText: 'Service Name*'),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: _phoneController,
-                    decoration: const InputDecoration(labelText: 'Phone Number*'),
-                    keyboardType: TextInputType.phone,
-                  ),
-                  const SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
-                    value: _selectedType,
-                    items: const [
-                      DropdownMenuItem(value: 'Ambulance', child: Text('Ambulance')),
-                      DropdownMenuItem(value: 'Police', child: Text('Police')),
-                      DropdownMenuItem(value: 'Fire', child: Text('Fire')),
-                      DropdownMenuItem(value: 'Child Protection', child: Text('Child Protection')),
-                      DropdownMenuItem(value: 'Medical Emergency', child: Text('Medical Emergency')),
-                    ],
-                    onChanged: (value) => setState(() => _selectedType = value!),
-                  ),
-                  const SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
-                    value: _selectedProvince,
-                    items: [
-                      const DropdownMenuItem(value: null, child: Text('National')),
-                      ...AppConstants.provinces.map((province) => 
-                        DropdownMenuItem(value: province, child: Text(province))
-                      ),
-                    ],
-                    onChanged: (value) => setState(() => _selectedProvince = value),
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  _nameController.clear();
-                  _phoneController.clear();
-                  Navigator.pop(context);
-                },
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                onPressed: () async {
-                  if (isEditing && id != null) {
-                    final emergency = Emergency(
-                      id: id,
-                      name: _nameController.text,
-                      phone: _phoneController.text,
-                      type: _selectedType,
-                      province: _selectedProvince,
-                    );
-                    await _emergenciesBox.put(id, emergency);
-                  } else {
-                    await _addEmergency();
-                  }
-                  _loadEmergencies();
-                  Navigator.pop(context);
-                },
-                child: Text(isEditing ? 'Update' : 'Add'),
-              ),
-            ],
-          );
-        },
-      ),
-    );
+  String _getEmergencyTypeName(EmergencyType type) {
+    switch (type) {
+      case EmergencyType.medical:
+        return 'Medical Emergency';
+      case EmergencyType.police:
+        return 'Police';
+      case EmergencyType.fire:
+        return 'Fire Brigade';
+      case EmergencyType.ambulance:
+        return 'Ambulance Service';
+    }
+  }
+
+  IconData _getEmergencyIcon(EmergencyType type) {
+    switch (type) {
+      case EmergencyType.medical:
+        return Icons.medical_services;
+      case EmergencyType.police:
+        return Icons.local_police;
+      case EmergencyType.fire:
+        return Icons.fire_truck;
+      case EmergencyType.ambulance:
+        return Icons.airport_shuttle;
+    }
+  }
+
+  Color _getEmergencyColor(EmergencyType type) {
+    switch (type) {
+      case EmergencyType.medical:
+        return Colors.red;
+      case EmergencyType.police:
+        return Colors.blue;
+      case EmergencyType.fire:
+        return Colors.orange;
+      case EmergencyType.ambulance:
+        return Colors.green;
+    }
   }
 }

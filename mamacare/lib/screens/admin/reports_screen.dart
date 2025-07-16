@@ -109,7 +109,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
               height: 300,
               child: SfCartesianChart(
                 primaryXAxis: CategoryAxis(),
-                series: <ChartSeries>[
+                series: <CartesianSeries>[
                   ColumnSeries<Map<String, dynamic>, String>(
                     dataSource: data,
                     xValueMapper: (Map<String, dynamic> data, _) => data['month'],

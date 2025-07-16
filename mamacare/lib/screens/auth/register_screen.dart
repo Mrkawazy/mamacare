@@ -57,7 +57,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       role: UserRole.user,
       registeredAt: DateTime.now(),
       province: _selectedProvince,
-      isActive: true,
+      isActive: true, createdAt: null, profileImageUrl: null,
     );
 
     try {

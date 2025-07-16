@@ -30,30 +30,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void _loadCurrentUser() {
     // In a real app, you would get the current user ID from auth state
     _currentUser = _usersBox.values.firstWhere(
-      (user) => user.email == 'user@example.com', // Replace with actual auth
+      (user) => user.email == 'obviouscc@outlook.com', 
       orElse: () => _usersBox.values.first,
     );
     
     if (_currentUser != null) {
-      _nameController.text = _currentUser!.name;
+      _nameController.text = _currentUser!.fullName;
       _emailController.text = _currentUser!.email;
-      _phoneController.text = _currentUser!.phone;
+      _phoneController.text = _currentUser!.phoneNumber;
     }
   }
 
   Future<void> _updateProfile() async {
     if (_currentUser == null) return;
 
-    final updatedUser = User(
+    var user = User(
       id: _currentUser!.id,
-      name: _nameController.text,
+      fullName: _nameController.text, // Change 'name' to 'fullName' or the correct field name in your User model
       email: _emailController.text,
-      phone: _phoneController.text,
-      password: _currentUser!.password,
       role: _currentUser!.role,
-      createdAt: _currentUser!.createdAt,
-      createdBy: _currentUser!.createdBy,
+      createdAt: _currentUser!.createdAt, // Update to match the actual field name in your User model
+      phoneNumber: _phoneController.text,
+      passwordHash: _currentUser!.passwordHash,
+      registeredAt: _currentUser!.registeredAt, profileImageUrl: null,
     );
+    final updatedUser = user;
 
     await _usersBox.put(updatedUser.id, updatedUser);
     setState(() {
@@ -102,7 +103,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   CircleAvatar(
                     radius: 50,
                     child: Text(
-                      _currentUser!.name[0],
+                      _currentUser!.fullName[0],
                       style: const TextStyle(fontSize: 40),
                     ),
                   ),

@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import 'package:mamacare/models/user.dart';
-import 'package:mamacare/services/auth_service.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mamacare/screens/superuser/add_admin_screen.dart';
 
 class AdminManagementScreen extends StatefulWidget {
@@ -45,7 +43,7 @@ class _AdminManagementScreenState extends State<AdminManagementScreen> {
       role: admin.role,
       registeredAt: admin.registeredAt,
       province: admin.province,
-      isActive: !admin.isActive,
+      isActive: !admin.isActive, createdAt: null, profileImageUrl: null,
     ));
     _loadAdmins();
   }
