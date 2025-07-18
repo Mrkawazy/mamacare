@@ -17,7 +17,7 @@ class Milestone {
   final DateTime? completedDate;
   
   @HiveField(4)
-  final bool isCompleted;
+  bool isCompleted;
   
   @HiveField(5)
   final String? notes;

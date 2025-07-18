@@ -3,7 +3,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:hive/hive.dart';
 import 'package:mamacare/models/facility.dart';
-
+import 'package:url_launcher/url_launcher.dart';
 
 class FacilityLocatorScreen extends StatefulWidget {
   const FacilityLocatorScreen({super.key});
@@ -163,7 +163,7 @@ class _FacilityLocatorScreenState extends State<FacilityLocatorScreen> {
     }
 
     if (mounted) {
-      setState(() => _markers.clear().addAll(newMarkers));
+      setState(() => _markers..clear()..addAll(newMarkers));
     }
   }
 
@@ -343,26 +343,4 @@ class _FacilityLocatorScreenState extends State<FacilityLocatorScreen> {
         return Icons.local_pharmacy;
     }
   }
-
-  Future<void> canLaunchUrl(Uri uri) async {
-    return await launchUrl(uri, mode: null);
-  }
-}
-
-class LaunchMode {
-  static var externalApplication;
-}
-
-launchUrl(Uri uri, {required mode}) async {
-  if (await canLaunchUrl(uri)) {
-    await launchUrl(uri);
-  } else {
-    throw 'Could not launch $uri';
-  }
-}
-
-Future<bool> canLaunchUrl(Uri uri) async {
-  // This function should check if the URL can be launched
-  // Implement this based on your actual requirements
-  return true; // Placeholder implementation
 }

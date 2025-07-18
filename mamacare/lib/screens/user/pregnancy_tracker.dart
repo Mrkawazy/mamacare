@@ -3,7 +3,7 @@ import 'package:hive/hive.dart';
 import 'package:mamacare/models/milestone.dart';
 import 'package:mamacare/models/pregnancy.dart';
 import 'package:intl/intl.dart';
-
+import 'package:syncfusion_flutter_calendar/calendar.dart';
 
 class PregnancyTrackerScreen extends StatefulWidget {
   const PregnancyTrackerScreen({super.key});
@@ -13,20 +13,49 @@ class PregnancyTrackerScreen extends StatefulWidget {
 }
 
 class _PregnancyTrackerScreenState extends State<PregnancyTrackerScreen> {
-  late Box<Pregnancy> _pregnancyBox;
+  late final Box<Pregnancy> _pregnancyBox;
   Pregnancy? _currentPregnancy;
+  bool _isLoading = true;
+  late CalendarController _calendarController;
 
   @override
   void initState() {
     super.initState();
-    _pregnancyBox = Hive.box<Pregnancy>('pregnancies');
-    _loadPregnancy();
+    _calendarController = CalendarController();
+    _initPregnancyData();
+  }
+
+  @override
+  void dispose() {
+    _calendarController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _initPregnancyData() async {
+    try {
+      _pregnancyBox = Hive.box<Pregnancy>('pregnancies');
+      await _loadPregnancy();
+    } catch (e) {
+      debugPrint('Error loading pregnancy data: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading data: ${e.toString()}')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   Future<void> _loadPregnancy() async {
-    if (_pregnancyBox.isNotEmpty) {
+    if (_pregnancyBox.isNotEmpty && mounted) {
       setState(() {
-        _currentPregnancy = _pregnancyBox.values.first;
+        _currentPregnancy = _pregnancyBox.values.firstWhere(
+          (p) => p.isActive,
+          orElse: () => _pregnancyBox.values.first,
+        );
       });
     }
   }
@@ -39,87 +68,110 @@ class _PregnancyTrackerScreenState extends State<PregnancyTrackerScreen> {
       lastDate: DateTime.now(),
     );
 
-    if (lastPeriod != null) {
-      final estimatedDelivery = lastPeriod.add(const Duration(days: 280));
-      final pregnancy = Pregnancy(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        userId: 'current_user_id', // Replace with actual user ID
-        lastMenstrualPeriod: lastPeriod,
-        estimatedDeliveryDate: estimatedDelivery,
-        milestones: _generateMilestones(lastPeriod, estimatedDelivery),
-        isActive: true,
-      );
+    if (lastPeriod == null || !mounted) return;
 
-      await _pregnancyBox.put(pregnancy.id, pregnancy);
-      _loadPregnancy();
-    }
+    final estimatedDelivery = lastPeriod.add(const Duration(days: 280));
+    final pregnancy = Pregnancy(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      userId: 'current_user_id',
+      lastMenstrualPeriod: lastPeriod,
+      estimatedDeliveryDate: estimatedDelivery,
+      milestones: _generateMilestones(lastPeriod, estimatedDelivery),
+      isActive: true,
+    );
+
+    await _pregnancyBox.put(pregnancy.id, pregnancy);
+    if (mounted) await _loadPregnancy();
   }
 
   List<Milestone> _generateMilestones(DateTime lastPeriod, DateTime edd) {
-    // Generate standard pregnancy milestones
     return [
       Milestone(
         title: 'First Trimester Ends',
         description: 'End of first trimester (12 weeks)',
         expectedDate: lastPeriod.add(const Duration(days: 84)),
+        isCompleted: false,
       ),
       Milestone(
         title: 'Second Trimester Ends',
         description: 'End of second trimester (27 weeks)',
         expectedDate: lastPeriod.add(const Duration(days: 189)),
+        isCompleted: false,
       ),
       Milestone(
         title: 'Third Trimester Starts',
         description: 'Start of third trimester (28 weeks)',
         expectedDate: lastPeriod.add(const Duration(days: 196)),
+        isCompleted: false,
       ),
       Milestone(
         title: 'Expected Delivery Date',
         description: 'Baby is due!',
         expectedDate: edd,
+        isCompleted: false,
       ),
     ];
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Pregnancy Tracker'),
-      ),
+      appBar: AppBar(title: const Text('Pregnancy Tracker')),
       body: _currentPregnancy == null
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text('No active pregnancy tracked'),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: _addPregnancy,
-                    child: const Text('Start Tracking Pregnancy'),
-                  ),
-                ],
-              ),
+          ? _buildEmptyState()
+          : _buildPregnancyContent(),
+      floatingActionButton: _currentPregnancy == null
+          ? FloatingActionButton(
+              onPressed: _addPregnancy,
+              child: const Icon(Icons.add),
             )
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildPregnancyOverview(),
-                  const SizedBox(height: 24),
-                  _buildMilestones(),
-                  const SizedBox(height: 24),
-                  _buildCalendar(),
-                ],
-              ),
-            ),
+          : null,
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Text('No active pregnancy tracked'),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: _addPregnancy,
+            child: const Text('Start Tracking Pregnancy'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPregnancyContent() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildPregnancyOverview(),
+          const SizedBox(height: 24),
+          _buildMilestones(),
+          const SizedBox(height: 24),
+          _buildCalendar(),
+        ],
+      ),
     );
   }
 
   Widget _buildPregnancyOverview() {
-    final weeks = (DateTime.now().difference(_currentPregnancy!.lastMenstrualPeriod).inDays / 7).floor();
-    final days = (DateTime.now().difference(_currentPregnancy!.lastMenstrualPeriod).inDays % 7);
+    final duration = DateTime.now().difference(_currentPregnancy!.lastMenstrualPeriod);
+    final weeks = duration.inDays ~/ 7;
+    final days = duration.inDays % 7;
+    final progress = weeks / 40;
 
     return Card(
       child: Padding(
@@ -133,9 +185,10 @@ class _PregnancyTrackerScreenState extends State<PregnancyTrackerScreen> {
             ),
             const SizedBox(height: 16),
             LinearProgressIndicator(
-              value: weeks / 40,
+              value: progress,
               minHeight: 20,
               backgroundColor: Colors.grey[200],
+              color: Theme.of(context).primaryColor,
             ),
             const SizedBox(height: 16),
             Row(
@@ -149,25 +202,23 @@ class _PregnancyTrackerScreenState extends State<PregnancyTrackerScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Last Period'),
-                    Text(DateFormat('MMM d, y').format(_currentPregnancy!.lastMenstrualPeriod)),
-                  ],
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Due Date'),
-                    Text(DateFormat('MMM d, y').format(_currentPregnancy!.estimatedDeliveryDate)),
-                  ],
-                ),
+                _buildDateInfo('Last Period', _currentPregnancy!.lastMenstrualPeriod),
+                _buildDateInfo('Due Date', _currentPregnancy!.estimatedDeliveryDate),
               ],
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildDateInfo(String label, DateTime date) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label),
+        Text(DateFormat('MMM d, y').format(date)),
+      ],
     );
   }
 
@@ -180,43 +231,47 @@ class _PregnancyTrackerScreenState extends State<PregnancyTrackerScreen> {
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
-        ..._currentPregnancy!.milestones.map((milestone) {
-          final daysToGo = milestone.expectedDate.difference(DateTime.now()).inDays;
-          return Card(
-            margin: const EdgeInsets.only(bottom: 8),
-            child: ListTile(
-              leading: const Icon(Icons.flag),
-              title: Text(milestone.title),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(milestone.description),
-                  Text(
-                    '${DateFormat('MMM d, y').format(milestone.expectedDate)} (${daysToGo > 0 ? '$daysToGo days to go' : '${-daysToGo} days ago'})',
-                  ),
-                ],
-              ),
-              trailing: Checkbox(
-                value: milestone.isCompleted,
-                onChanged: (value) {
-                  // Update milestone completion status
-                },
-              ),
-            ),
-          );
-        }).toList(),
+        ..._currentPregnancy!.milestones.map(_buildMilestoneCard).toList(),
       ],
     );
   }
 
+  Widget _buildMilestoneCard(Milestone milestone) {
+    final daysToGo = milestone.expectedDate.difference(DateTime.now()).inDays;
+    final dateText = DateFormat('MMM d, y').format(milestone.expectedDate);
+    final statusText = daysToGo > 0 ? '$daysToGo days to go' : '${-daysToGo} days ago';
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        leading: const Icon(Icons.flag, color: Colors.blue),
+        title: Text(milestone.title),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(milestone.description),
+            Text('$dateText ($statusText)'),
+          ],
+        ),
+        trailing: Checkbox(
+          value: milestone.isCompleted,
+          onChanged: (value) => _toggleMilestoneCompletion(milestone, value),
+        ),
+        onTap: () => _zoomToCalendarDate(milestone.expectedDate),
+      ),
+    );
+  }
+
+  void _toggleMilestoneCompletion(Milestone milestone, bool? value) {
+    if (value == null || !mounted) return;
+
+    setState(() {
+      milestone.isCompleted = value;
+      _pregnancyBox.put(_currentPregnancy!.id, _currentPregnancy!);
+    });
+  }
+
   Widget _buildCalendar() {
-    var sfCalendar = SfCalendar(
-            view: CalendarView.month,
-            dataSource: _getCalendarDataSource,
-            monthViewSettings: const MonthViewSettings(
-              showAgenda: true,
-            ),
-          );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -226,88 +281,70 @@ class _PregnancyTrackerScreenState extends State<PregnancyTrackerScreen> {
         ),
         const SizedBox(height: 8),
         SizedBox(
-          height: 300,
-          child: sfCalendar, // Use the SfCalendar widget to display the calendar
+          height: 400,
+          child: SfCalendar(
+            controller: _calendarController,
+            view: CalendarView.month,
+            dataSource: _getCalendarDataSource(),
+            monthViewSettings: const MonthViewSettings(
+              showAgenda: true,
+              agendaViewHeight: 150,
+            ),
+            onTap: (calendarTapDetails) {
+              if (calendarTapDetails.appointments != null && calendarTapDetails.appointments!.isNotEmpty) {
+                _showAppointmentDetails(calendarTapDetails.appointments!.first);
+              }
+            },
+          ),
         ),
       ],
     );
   }
 
-  _AppointmentDataSource get _getCalendarDataSource {
-    final List<Appointment> appointments = [];
-
-    // Add milestones as calendar events
-    for (final milestone in _currentPregnancy!.milestones) {
-      appointments.add(Appointment(
+  MeetingDataSource _getCalendarDataSource() {
+    final appointments = _currentPregnancy!.milestones.map((milestone) {
+      return Appointment(
         startTime: milestone.expectedDate,
         endTime: milestone.expectedDate.add(const Duration(hours: 1)),
         subject: milestone.title,
-        color: Colors.blue,
-      ));
-    }
+        color: milestone.isCompleted ? Colors.green : Colors.blue,
+        notes: milestone.description,
+      );
+    }).toList();
 
-    // Add checkups
-    for (final checkup in _currentPregnancy!.checkups) {
-      appointments.add(Appointment(
-        startTime: checkup.date,
-        endTime: checkup.date.add(const Duration(hours: 1)),
-        subject: 'Pregnancy Checkup',
-        color: Colors.green,
-      ));
-    }
+    return MeetingDataSource(
+    appointments,
+    );
+  }
 
-    return _AppointmentDataSource(appointments);
+  void _zoomToCalendarDate(DateTime date) {
+    
+    setState(() {
+      _calendarController.displayDate = date;
+    });
+    
+  
+    _calendarController.view = CalendarView.month;
+  }
+
+  void _showAppointmentDetails(Appointment appointment) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(appointment.subject),
+        content: Text(appointment.notes ?? ''),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
   }
 }
-
-class SfCalendar {
-  const SfCalendar({
-    required CalendarView view,
-    required _AppointmentDataSource dataSource,
-    required MonthViewSettings monthViewSettings,
-  });
-
-  // Placeholder for the actual SfCalendar widget implementation
-}
-
-class MonthViewSettings {
-  const MonthViewSettings({
-    required this.showAgenda,
-  });
-
-  final bool showAgenda;
-
-  // Placeholder for the actual MonthViewSettings implementation
-}
-
-class CalendarView {
-  static var month = CalendarView();
-}
-
-class _AppointmentDataSource extends CalendarDataSource {
-  _AppointmentDataSource(List<Appointment> source) : super(appointments: source) {
+class MeetingDataSource extends CalendarDataSource {
+  MeetingDataSource(List<Appointment> source) {
     appointments = source;
   }
-
-  List<Appointment>? get source => appointments;
-}
-
-class CalendarDataSource {
-  late List<Appointment> appointments;
-
-  CalendarDataSource({required this.appointments});
-}
-
-class Appointment {
-  late DateTime startTime;
-  late DateTime endTime;
-  late String subject;
-  late Color color;
-
-  Appointment({
-    required this.startTime,
-    required this.endTime,
-    required this.subject,
-    required this.color,
-  });
 }

@@ -28,9 +28,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _loadCurrentUser() {
-    // In a real app, you would get the current user ID from auth state
     _currentUser = _usersBox.values.firstWhere(
-      (user) => user.email == 'obviouscc@outlook.com', 
+      (user) => user.email == '', 
       orElse: () => _usersBox.values.first,
     );
     
